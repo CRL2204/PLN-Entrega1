@@ -14,7 +14,7 @@ stopwords = set(stopwords.words("english"))
 #Vou tentar melhorar a lista de stopwords colocando nela algumas pontuacoes q nao servem de nada
 # Fiz elas com unicode pq eh assim que as stop_words estao
 punctuation = ['.', '-', ',', '"', '(', ')', ':', '?', "'", '--', ';', 
-'!', '$', '*', '&', '...', ':/', '/', '%', '..']
+'!', '$', '*', '&', '...', ':/', '/', '%', '..', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 punctuation = set(punctuation)
 
 # AGORA AS STOPWORDS VAO TER AS PONTUACOES TB
@@ -146,30 +146,93 @@ print(len(categorized_testing_docs))
 
 all_words = all_training_words + all_testing_words
 words_freqDist = nltk.FreqDist(all_words)
+
 print(words_freqDist)
 print(words_freqDist.most_common(50))
 print(words_freqDist['also'])
+print("Quantidade de palavras q so ocorrem uma vez:")
 print(len(words_freqDist.hapaxes()))
+print("Common words")
+# import pdb;
+# pdb.set_trace();
+# print(list(words_freqDist.keys()[:50]))
 
-# common_words = words_freqDist.most_common(15000)
-# print(common_words[-1])
+
+# PRA ESCOLHER QUANTAS PALAVRAS VAMOS AVALIAR EM CADA DOCUMENTO
+# SE AS 10.000 MAIS COMUNS, POR EXEMPLO
+# POIS A 10.000TH palavra mais comum eh ('york', 8) QUE OCORRE 8 VEZES, O QUE PODE SER RELEVANTE
+most_common_words_freqDist = words_freqDist.most_common(1000)
+print(most_common_words_freqDist[-2])
+
+# PEGAR SO AS PALAVRAS MAIS COMUNS PARA SERVIREM DE FEATURES
+# most_common_words_freqDist RETORNA (word, frequency)
+# ENTAO TEMOS Q PEGAR SO AS PALAVRAS:
+most_common_words = [w for (w, freq) in most_common_words_freqDist]
+print("As palavras mais comuns:")
+print(most_common_words)
 
 # PEGAR TODAS AS PALAVRAS QUE OCORRERAM MAIS DE DUAS VEZES
 meaningful_words_freqDist = [w for w in words_freqDist if words_freqDist[w] > 2]
+print("Quantidade total de palavras:")
 print(len(words_freqDist))
+print("Quantidade de palavras q ocorrem mais de 2 vezes:")
 print(len(meaningful_words_freqDist))
+#print(words_freqDist[-10000])
+
+
 
 ###########################################################################################
 
 #Retorna uma lista com True ou False dizendo quais palavras da word_features o documento tem
 # retorna: {u'even': True, u'story': False, u'also': True, u'see': True, u'much': False,.... }
-def find_features(tweet):
+def find_features(doc_words):
 	# Pega todas as palavras do documento e transforma em set pra retornar as palavras independente da frequencia dela
-	tweet_words = set(tweet)
+	doc_words = set(doc_words)
 	# vai ser o dict dizendo quais palavras, de todas as tidas como mais importantes, estao presentes nese tweet
 	features = {}
 	#print(top_word_features_keys[:20])
-	for w in top_tweets_features:
-		features[w] = (w in tweet_words)
+	for w in most_common_words:
+		features[w] = (w in doc_words)
 
 	return features
+
+#############################################################################################
+
+
+############################################################################
+#
+# 1) AGORA TEMOS A QUANTIDADE DE PALAVRAS QUE IREMOS OLHAR EM CADA DOCUMENTO DEFINIDA
+# 
+# 2) TEMOS O METODO QUE IRA AVALIAR SE AS PALAVRAS MAIS COMUNS ESTAO OU NAO NO DOCUMENTO
+#
+# 3) AGORA REPRESENTAREMOS OS DOCUMENTOS ATRAVES DAS FEATURES QUE O MESMO TEM OU NAO E DAS CATEGORIAS,
+# PARA ISSO CRIAMOS TUPLA ((aval_presenca_das_features), categorias)
+#
+############################################################################
+
+training_docs_representation = [ (find_features(doc_words), categories) for (doc_words, categories) in categorized_training_docs]
+
+print(len(training_docs_representation))
+print("Exemplo de um doc representado pelas features e categorias:")
+print(training_docs_representation[5])
+
+testing_docs_representation = [ (find_features(doc_words), categories) for (doc_words, categories) in categorized_testing_docs]
+
+print(len(testing_docs_representation))
+
+
+########################################################################
+#
+# AGORA TEMOS TODOS OS DOCUMENTOS REPRESENTADOS ATRAVES DA AVALIACAO DA 
+# PRESENCA DAS FEATURES E SUAS CATEGORIAS
+#
+# COM ISSO, AGORA TREINAREMOS OS CLASSIFICADORES PARA APRENDEREM QUE PALAVRAS
+# ESTAO MAIS ASSOCIADAS COM CERTAS CLASSES PARA, ASSIM, ACABAR POR CLASSIFICAR 
+# NOVOS CASOS
+#
+########################################################################
+
+classifier = nltk.NaiveBayesClassifier.train(training_docs_representation)
+classifier.show_most_informative_features(30)
+accuracy = nltk.classify.accuracy(classifier, testing_docs_representation)
+print("Binary features, common stemmed words, gets %f" % accuracy)
