@@ -1,8 +1,11 @@
 import nltk
-from nltk.corpus import reuters
-from nltk.corpus import stopwords
+from nltk.corpus import reuters, stopwords
 from nltk.metrics import precision, recall, f_measure
 import pickle
+import collections
+import random
+from nltk.classify.scikitlearn import SklearnClassifier
+from sklearn.linear_model import LogisticRegression, SGDClassifier
 
 
 ########################################################################################
@@ -54,19 +57,6 @@ categorized_docs = []
 
 # ARMAZENANDO TODOS AS PALAVRAS DOS DOC JA FILTRADOS DOS STOPWORDS
 all_docs_words = []
-
-
-# for doc in reuters.fileids():
-
-# 	#Pegando as palavras do doc que nao sao stopwords para diminuir a quantidade
-# 	docs_words = [w for w in reuters.words(doc) if w not in stopwords]
-# 	all_docs_words = all_docs_words + docs_words
-# 	doc_features_category = (docs_words, reuters.categories(doc))
-# 	categorized_docs.append(doc_features_category)
-
-# print(categorized_docs[:5])
-# print(len(categorized_docs))
-# print(len(all_docs_words))
 
 
 ################################################################################
@@ -154,9 +144,6 @@ print(words_freqDist['also'])
 print("Quantidade de palavras q so ocorrem uma vez:")
 print(len(words_freqDist.hapaxes()))
 print("Common words")
-# import pdb;
-# pdb.set_trace();
-# print(list(words_freqDist.keys()[:50]))
 
 
 # PRA ESCOLHER QUANTAS PALAVRAS VAMOS AVALIAR EM CADA DOCUMENTO
@@ -173,11 +160,7 @@ print("As palavras mais comuns:")
 #print(most_common_words)
 
 # PEGAR TODAS AS PALAVRAS QUE OCORRERAM MAIS DE DUAS VEZES
-meaningful_words_freqDist = [w for w in words_freqDist if words_freqDist[w] > 2]
-print("Quantidade total de palavras:")
-print(len(words_freqDist))
-print("Quantidade de palavras q ocorrem mais de 2 vezes:")
-print(len(meaningful_words_freqDist))
+# meaningful_words_freqDist = [w for w in words_freqDist if words_freqDist[w] > 2]
 #print(words_freqDist[-10000])
 
 
@@ -221,13 +204,22 @@ for training_doc_representation in training_docs_pre_representation:
 
 
 def get_category_docs(docs_representation, wanted_category):
-	classified_per_category_docs = []
+	pos_classified_per_category_docs = []
+	neg_classified_per_category_docs = []
 
 	for (doc_features, category) in docs_representation:
 		if category == wanted_category:
-			classified_per_category_docs.append((doc_features, 'pos'))
+			pos_classified_per_category_docs.append((doc_features, 'pos'))
 		else:
-			classified_per_category_docs.append((doc_features, 'neg'))
+			neg_classified_per_category_docs.append((doc_features, 'neg'))
+
+
+	pos_len = len(pos_classified_per_category_docs)
+	neg_classified_per_category_docs = neg_classified_per_category_docs[:pos_len]
+
+	classified_per_category_docs = pos_classified_per_category_docs + neg_classified_per_category_docs
+	random.shuffle(classified_per_category_docs)
+
 	return classified_per_category_docs
 
 main_categories = ['earn', 'acq', 'money-fx', 'grain', 'crude', 'trade', 'interest', 'ship', 'wheat', 'corn']
@@ -263,20 +255,74 @@ testing_docs_per_category = []
 for category in main_categories:
 	testing_docs_per_category.append((get_category_docs(testing_docs_representation, category), category))
 
+
+
 current_category = 0
 for classifier in all_classifiers:
 	accuracy = nltk.classify.accuracy(classifier, testing_docs_per_category[current_category][0])
-	precision = nltk.classify.precision(classifier, testing_docs_per_category[current_category][0])
-	recall = nltk.classify.recall(classifier, testing_docs_per_category[current_category][0])
-	f_measure = nltk.classify.f_measure(classifier, testing_docs_per_category[current_category][0])
 	print("accuracy of " + testing_docs_per_category[current_category][1] + " = " + str(accuracy))
-	print("precision of " + testing_docs_per_category[current_category][1] + " = " + str(precision))
-	print("recall of " + testing_docs_per_category[current_category][1] + " = " + str(recall))
-	print("f_measure of " + testing_docs_per_category[current_category][1] + " = " + str(f_measure) + '\n')
+
+	refsets = collections.defaultdict(set)
+	testsets = collections.defaultdict(set)
+
+	for i, (feats, label) in enumerate(testing_docs_per_category[current_category][0]):
+	    refsets[label].add(i)
+	    observed = classifier.classify(feats)
+	    testsets[observed].add(i)
+
+	print('pos precision:', precision(refsets['pos'], testsets['pos']))
+	print('pos recall:', recall(refsets['pos'], testsets['pos']))
+	print('pos F-measure:', f_measure(refsets['pos'], testsets['pos']))
+
+	print('neg precision:', precision(refsets['neg'], testsets['neg']))
+	print('neg recall:', recall(refsets['neg'], testsets['neg']))
+	print('neg F-measure:', f_measure(refsets['neg'], testsets['neg']))
+	print("\n")
+
 	current_category = current_category + 1
 
 print("lenght of testing docs representations")
 print(len(testing_docs_representation))
+
+
+
+#############################################################################
+# AGORA CLASSIFICAR COM LOGISTIC REGRESSION
+
+print("\n")
+print("AGORA ESTAMOS CLASSIFICANDO COM O LOGISTIC REGRESSION!")
+print("\n")
+LogisticRegression_classifier = SklearnClassifier(LogisticRegression())
+#LogisticRegression_classifier = SklearnClassifier(SGDClassifier())
+
+all_classifiers = [ LogisticRegression_classifier.train(docs_per_category[category][0]) for category in range(10)]
+
+current_category = 0
+for classifier in all_classifiers:
+	accuracy = nltk.classify.accuracy(classifier, testing_docs_per_category[current_category][0])
+	print("Logistic_regression accuracy of " + testing_docs_per_category[current_category][1] + " = " + str(accuracy))
+
+	refsets = collections.defaultdict(set)
+	testsets = collections.defaultdict(set)
+
+	for i, (feats, label) in enumerate(testing_docs_per_category[current_category][0]):
+	    refsets[label].add(i)
+	    observed = classifier.classify(feats)
+	    testsets[observed].add(i)
+
+	print('pos precision:', precision(refsets['pos'], testsets['pos']))
+	print('pos recall:', recall(refsets['pos'], testsets['pos']))
+	print('pos F-measure:', f_measure(refsets['pos'], testsets['pos']))
+
+	print('neg precision:', precision(refsets['neg'], testsets['neg']))
+	print('neg recall:', recall(refsets['neg'], testsets['neg']))
+	print('neg F-measure:', f_measure(refsets['neg'], testsets['neg']))
+
+	current_category = current_category + 1
+
+#print("LogisticRegression_classifier accuracy:", (nltk.classify.accuracy(LogisticRegression_classifier, testing_set)) * 100)
+
+
 
 
 ########################################################################
