@@ -1,6 +1,7 @@
 import nltk
 from nltk.corpus import reuters
 from nltk.corpus import stopwords
+from nltk.metrics import precision, recall, f_measure
 import pickle
 
 
@@ -94,10 +95,10 @@ def getting_docs_categorized():
 
 	# SALVANDO AS TUPLAS EM PICKLE PRA SER USADO DPS SEM PRECISAR TER QUE LER OS DOCUMENTOS
 	with open("training_docs.pickle", "wb") as f:
-		pickle.dump(categorized_training_docs, f)
+		pickle.dump(categorized_training_docs, f, 2)
 
 	with open("training_words.pickle", "wb") as f:
-		pickle.dump(all_training_words, f)
+		pickle.dump(all_training_words, f, 2)
 
 	# IMPRIMINDO DADOS DO CONJUNTO DE TREINAMENTO
 	print("Training documents words: " + str(len(all_training_words)))
@@ -114,10 +115,10 @@ def getting_docs_categorized():
 
 	# SALVANDO EM PICKLE PRA SER USADO NO SCRIPT DO DB
 	with open("testing_docs.pickle", "wb") as f:
-		pickle.dump(categorized_testing_docs, f)
+		pickle.dump(categorized_testing_docs, f, 2)
 
 	with open("testing_words.pickle", "wb") as f:
-		pickle.dump(all_testing_words, f)
+		pickle.dump(all_testing_words, f, 2)
 
 	# IMPRIMINDO DADOS DO CONJUNTO DE TREINAMENTO
 	print("Testing documents words: " + str(len(all_testing_words)))
@@ -162,14 +163,14 @@ print("Common words")
 # SE AS 10.000 MAIS COMUNS, POR EXEMPLO
 # POIS A 10.000TH palavra mais comum eh ('york', 8) QUE OCORRE 8 VEZES, O QUE PODE SER RELEVANTE
 most_common_words_freqDist = words_freqDist.most_common(1000)
-print(most_common_words_freqDist[-2])
+#print(most_common_words_freqDist[-2])
 
 # PEGAR SO AS PALAVRAS MAIS COMUNS PARA SERVIREM DE FEATURES
 # most_common_words_freqDist RETORNA (word, frequency)
 # ENTAO TEMOS Q PEGAR SO AS PALAVRAS:
 most_common_words = [w for (w, freq) in most_common_words_freqDist]
 print("As palavras mais comuns:")
-print(most_common_words)
+#print(most_common_words)
 
 # PEGAR TODAS AS PALAVRAS QUE OCORRERAM MAIS DE DUAS VEZES
 meaningful_words_freqDist = [w for w in words_freqDist if words_freqDist[w] > 2]
@@ -210,14 +211,71 @@ def find_features(doc_words):
 #
 ############################################################################
 
-training_docs_representation = [ (find_features(doc_words), categories) for (doc_words, categories) in categorized_training_docs]
+# CRIANDO DOCUMENTOS COM CATEGORIAS INDIVIDUAIS A PARTIR DOS DOCUMENTOS MULTI-CATEGORIA
 
-print(len(training_docs_representation))
-print("Exemplo de um doc representado pelas features e categorias:")
-print(training_docs_representation[5])
+training_docs_pre_representation = [ (find_features(doc_words), categories) for (doc_words, categories) in categorized_training_docs]
+training_docs_representation = []
+for training_doc_representation in training_docs_pre_representation:
+	for category in training_doc_representation[1]:
+		training_docs_representation.append((training_doc_representation[0], category))
 
-testing_docs_representation = [ (find_features(doc_words), categories) for (doc_words, categories) in categorized_testing_docs]
 
+def get_category_docs(docs_representation, wanted_category):
+	classified_per_category_docs = []
+
+	for (doc_features, category) in docs_representation:
+		if category == wanted_category:
+			classified_per_category_docs.append((doc_features, 'pos'))
+		else:
+			classified_per_category_docs.append((doc_features, 'neg'))
+	return classified_per_category_docs
+
+main_categories = ['earn', 'acq', 'money-fx', 'grain', 'crude', 'trade', 'interest', 'ship', 'wheat', 'corn']
+
+docs_per_category = []
+
+for category in main_categories:
+	docs_per_category.append((get_category_docs(training_docs_representation, category), category))
+
+all_classifiers = [ nltk.NaiveBayesClassifier.train(docs_per_category[category][0]) for category in range(10)]
+
+###################################################################################
+# IMPRIMINDO A CONTAGEM DE DOCUMENTOS POR CATEGORIA
+#
+#	for category_docs in docs_per_category:
+#		category = category_docs[1]
+#		print(category)
+#		print(len(category_docs[0]))
+###################################################################################
+
+#print(len(training_docs_representation))
+#print("Exemplo de um doc representado pelas features e categorias:")
+#print(training_docs_representation[9])
+
+testing_docs_pre_representation = [ (find_features(doc_words), categories) for (doc_words, categories) in categorized_testing_docs]
+testing_docs_representation = []
+for testing_doc_representation in testing_docs_pre_representation:
+	for category in testing_doc_representation[1]:
+		testing_docs_representation.append((testing_doc_representation[0], category))
+
+testing_docs_per_category = []
+
+for category in main_categories:
+	testing_docs_per_category.append((get_category_docs(testing_docs_representation, category), category))
+
+current_category = 0
+for classifier in all_classifiers:
+	accuracy = nltk.classify.accuracy(classifier, testing_docs_per_category[current_category][0])
+	precision = nltk.classify.precision(classifier, testing_docs_per_category[current_category][0])
+	recall = nltk.classify.recall(classifier, testing_docs_per_category[current_category][0])
+	f_measure = nltk.classify.f_measure(classifier, testing_docs_per_category[current_category][0])
+	print("accuracy of " + testing_docs_per_category[current_category][1] + " = " + str(accuracy))
+	print("precision of " + testing_docs_per_category[current_category][1] + " = " + str(precision))
+	print("recall of " + testing_docs_per_category[current_category][1] + " = " + str(recall))
+	print("f_measure of " + testing_docs_per_category[current_category][1] + " = " + str(f_measure) + '\n')
+	current_category = current_category + 1
+
+print("lenght of testing docs representations")
 print(len(testing_docs_representation))
 
 
@@ -232,7 +290,15 @@ print(len(testing_docs_representation))
 #
 ########################################################################
 
-classifier = nltk.NaiveBayesClassifier.train(training_docs_representation)
-classifier.show_most_informative_features(30)
-accuracy = nltk.classify.accuracy(classifier, testing_docs_representation)
-print("Binary features, common stemmed words, gets %f" % accuracy)
+#classifier = nltk.NaiveBayesClassifier.train(training_docs_representation)
+#classifier.show_most_informative_features(30)
+#accuracy = nltk.classify.accuracy(classifier, testing_docs_representation)
+#print("Binary features, common stemmed words, gets %f" % accuracy)
+
+
+
+
+
+
+
+
