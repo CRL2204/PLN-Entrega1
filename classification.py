@@ -5,12 +5,16 @@ import pickle
 import collections
 import random
 from nltk.classify.scikitlearn import SklearnClassifier
+from nltk.stem.snowball import EnglishStemmer
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 
 
 ########################################################################################
 # DEFININDO AS STOPWORDS
 
+
+#stemmer
+stemmer = EnglishStemmer()
 
 #Stopwords que vamos tirar de cada DOC
 stopwords = set(stopwords.words("english"))
@@ -43,7 +47,7 @@ def create_tuple_words_category(documents):
 	for doc in documents:
 
 		#Pegando as palavras do doc que nao sao stopwords para diminuir a quantidade
-		doc_words = [w for w in reuters.words(doc) if w not in stopwords]
+		doc_words = [stemmer.stem(w) for w in reuters.words(doc) if w not in stopwords]
 		documents_words = documents_words + doc_words
 
 		doc_features_category = (doc_words, reuters.categories(doc))
@@ -84,10 +88,10 @@ def getting_docs_categorized():
 	categorized_training_docs, all_training_words = create_tuple_words_category(train_docs)
 
 	# SALVANDO AS TUPLAS EM PICKLE PRA SER USADO DPS SEM PRECISAR TER QUE LER OS DOCUMENTOS
-	with open("training_docs.pickle", "wb") as f:
+	with open("training_docs2.pickle", "wb") as f:
 		pickle.dump(categorized_training_docs, f, 2)
 
-	with open("training_words.pickle", "wb") as f:
+	with open("training_words2.pickle", "wb") as f:
 		pickle.dump(all_training_words, f, 2)
 
 	# IMPRIMINDO DADOS DO CONJUNTO DE TREINAMENTO
@@ -104,10 +108,10 @@ def getting_docs_categorized():
 	categorized_testing_docs, all_testing_words = create_tuple_words_category(test_docs)
 
 	# SALVANDO EM PICKLE PRA SER USADO NO SCRIPT DO DB
-	with open("testing_docs.pickle", "wb") as f:
+	with open("testing_docs2.pickle", "wb") as f:
 		pickle.dump(categorized_testing_docs, f, 2)
 
-	with open("testing_words.pickle", "wb") as f:
+	with open("testing_words2.pickle", "wb") as f:
 		pickle.dump(all_testing_words, f, 2)
 
 	# IMPRIMINDO DADOS DO CONJUNTO DE TREINAMENTO
@@ -117,19 +121,19 @@ def getting_docs_categorized():
 
 ############################################################################################################
 
-#getting_docs_categorized()
+# getting_docs_categorized()
 
 
-with open("training_docs.pickle", "rb") as f:
+with open("training_docs2.pickle", "rb") as f:
 	categorized_training_docs = pickle.load(f)
 
-with open("testing_docs.pickle", "rb") as f:
+with open("testing_docs2.pickle", "rb") as f:
 	categorized_testing_docs = pickle.load(f)
 
-with open("training_words.pickle", "rb") as f:
+with open("training_words2.pickle", "rb") as f:
 	all_training_words = pickle.load(f)
 
-with open("testing_words.pickle", "rb") as f:
+with open("testing_words2.pickle", "rb") as f:
 	all_testing_words = pickle.load(f)
 
 print(len(categorized_training_docs))
@@ -157,7 +161,7 @@ most_common_words_freqDist = words_freqDist.most_common(1000)
 # ENTAO TEMOS Q PEGAR SO AS PALAVRAS:
 most_common_words = [w for (w, freq) in most_common_words_freqDist]
 print("As palavras mais comuns:")
-#print(most_common_words)
+# print(most_common_words)
 
 # PEGAR TODAS AS PALAVRAS QUE OCORRERAM MAIS DE DUAS VEZES
 # meaningful_words_freqDist = [w for w in words_freqDist if words_freqDist[w] > 2]
@@ -172,7 +176,7 @@ print("As palavras mais comuns:")
 def find_features(doc_words):
 	# Pega todas as palavras do documento e transforma em set pra retornar as palavras independente da frequencia dela
 	doc_words = set(doc_words)
-	# vai ser o dict dizendo quais palavras, de todas as tidas como mais importantes, estao presentes nese tweet
+	# vai ser o dict dizendo quais palavras, de todas as tidas como mais importantes, estao presentes nese documento
 	features = {}
 	#print(top_word_features_keys[:20])
 	for w in most_common_words:
