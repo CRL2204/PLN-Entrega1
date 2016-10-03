@@ -4,7 +4,10 @@ from nltk.metrics import precision, recall, f_measure
 import pickle
 import collections
 import random
+import time
 from nltk.classify.scikitlearn import SklearnClassifier
+from sklearn.svm import LinearSVC, SVC
+from nltk.classify import NaiveBayesClassifier, MaxentClassifier
 from nltk.stem.snowball import EnglishStemmer
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 
@@ -153,7 +156,7 @@ print("Common words")
 # PRA ESCOLHER QUANTAS PALAVRAS VAMOS AVALIAR EM CADA DOCUMENTO
 # SE AS 10.000 MAIS COMUNS, POR EXEMPLO
 # POIS A 10.000TH palavra mais comum eh ('york', 8) QUE OCORRE 8 VEZES, O QUE PODE SER RELEVANTE
-most_common_words_freqDist = words_freqDist.most_common(1000)
+most_common_words_freqDist = words_freqDist.most_common(3000)
 #print(most_common_words_freqDist[-2])
 
 # PEGAR SO AS PALAVRAS MAIS COMUNS PARA SERVIREM DE FEATURES
@@ -260,70 +263,98 @@ for category in main_categories:
 	testing_docs_per_category.append((get_category_docs(testing_docs_representation, category), category))
 
 
+def classify_naive_bayes():
 
-current_category = 0
-for classifier in all_classifiers:
-	accuracy = nltk.classify.accuracy(classifier, testing_docs_per_category[current_category][0])
-	print("accuracy of " + testing_docs_per_category[current_category][1] + " = " + str(accuracy))
+	naive_bayes_timer = time.time()
 
-	refsets = collections.defaultdict(set)
-	testsets = collections.defaultdict(set)
+	current_category = 0
+	# Vai ser usado para fazer a media das accuracies
+	accuracy_total = 0
+	for classifier in all_classifiers:
+		accuracy = nltk.classify.accuracy(classifier, testing_docs_per_category[current_category][0])
+		accuracy_total = accuracy_total + accuracy
+		print("accuracy of " + testing_docs_per_category[current_category][1] + " = " + str(accuracy))
 
-	for i, (feats, label) in enumerate(testing_docs_per_category[current_category][0]):
-	    refsets[label].add(i)
-	    observed = classifier.classify(feats)
-	    testsets[observed].add(i)
+		refsets = collections.defaultdict(set)
+		testsets = collections.defaultdict(set)
 
-	print('pos precision:', precision(refsets['pos'], testsets['pos']))
-	print('pos recall:', recall(refsets['pos'], testsets['pos']))
-	print('pos F-measure:', f_measure(refsets['pos'], testsets['pos']))
+		for i, (feats, label) in enumerate(testing_docs_per_category[current_category][0]):
+		    refsets[label].add(i)
+		    observed = classifier.classify(feats)
+		    testsets[observed].add(i)
 
-	print('neg precision:', precision(refsets['neg'], testsets['neg']))
-	print('neg recall:', recall(refsets['neg'], testsets['neg']))
-	print('neg F-measure:', f_measure(refsets['neg'], testsets['neg']))
-	print("\n")
+		print('tamanhos POS, refset: ' + str(len(refsets['pos'])) + ' testset: ' + str(len(testsets['pos'])) )
+		print('pos precision:', precision(refsets['pos'], testsets['pos']))
+		print('pos recall:', recall(refsets['pos'], testsets['pos']))
+		print('pos F-measure:', f_measure(refsets['pos'], testsets['pos']))
 
-	current_category = current_category + 1
+		print('tamanhos NEG, refset: ' + str(len(refsets['neg'])) + ' testset: ' + str(len(testsets['neg'])) )
+		print('neg precision:', precision(refsets['neg'], testsets['neg']))
+		print('neg recall:', recall(refsets['neg'], testsets['neg']))
+		print('neg F-measure:', f_measure(refsets['neg'], testsets['neg']))
+		print("\n")
 
-print("lenght of testing docs representations")
-print(len(testing_docs_representation))
+		current_category = current_category + 1
+
+	print("--- Naive Bayes executed in %s seconds ---" % (time.time() - naive_bayes_timer))
+	mean_accuracy = accuracy_total/10
+	print("Average accuracy: " + str(mean_accuracy))
+	print("lenght of testing docs representations")
+	print(len(testing_docs_representation))
 
 
 
 #############################################################################
-# AGORA CLASSIFICAR COM LOGISTIC REGRESSION
+# AGORA CLASSIFICAR COM O CLASSIFICADOR DE ENTROPIA MAXIMA -> MAXENT
 
-print("\n")
-print("AGORA ESTAMOS CLASSIFICANDO COM O LOGISTIC REGRESSION!")
-print("\n")
-LogisticRegression_classifier = SklearnClassifier(LogisticRegression())
-#LogisticRegression_classifier = SklearnClassifier(SGDClassifier())
+def classify_alternative_classifier():
+	print("\n")
+	print("AGORA ESTAMOS CLASSIFICANDO COM O LOGISTIC REGRESSION!")
+	print("\n")
 
-all_classifiers = [ LogisticRegression_classifier.train(docs_per_category[category][0]) for category in range(10)]
+	classifier_timer = time.time()
 
-current_category = 0
-for classifier in all_classifiers:
-	accuracy = nltk.classify.accuracy(classifier, testing_docs_per_category[current_category][0])
-	print("Logistic_regression accuracy of " + testing_docs_per_category[current_category][1] + " = " + str(accuracy))
+	#LogisticRegression_classifier = SklearnClassifier(LogisticRegression())
+	#LogisticRegression_classifier = SklearnClassifier(LinearSVC(), sparse=False)
+	#LogisticRegression_classifier = MaxentClassifier.train(docs_per_category[category][0], 'GIS', trace=0, encoding=None, labels=None, sparse=True, gaussian_prior_sigma=0, max_iter = 1)
+	#LogisticRegression_classifier = SklearnClassifier(SGDClassifier())
 
-	refsets = collections.defaultdict(set)
-	testsets = collections.defaultdict(set)
+	#algorithm = nltk.classify.MaxentClassifier.ALGORITHMS[0]
+	#classifier = nltk.MaxentClassifier.train(trainfeats, algorithm,max_iter=3)
+	all_classifiers = [ MaxentClassifier.train(docs_per_category[category][0], 'GIS', trace=0, encoding=None, labels=None, gaussian_prior_sigma=0, max_iter = 1)
+ for category in range(10)]
 
-	for i, (feats, label) in enumerate(testing_docs_per_category[current_category][0]):
-	    refsets[label].add(i)
-	    observed = classifier.classify(feats)
-	    testsets[observed].add(i)
+	current_category = 0
+	accuracy_total = 0
+	for classifier in all_classifiers:
+		accuracy = nltk.classify.accuracy(classifier, testing_docs_per_category[current_category][0])
+		accuracy_total = accuracy_total + accuracy
+		print("Logistic_regression accuracy of " + testing_docs_per_category[current_category][1] + " = " + str(accuracy))
 
-	print('pos precision:', precision(refsets['pos'], testsets['pos']))
-	print('pos recall:', recall(refsets['pos'], testsets['pos']))
-	print('pos F-measure:', f_measure(refsets['pos'], testsets['pos']))
+		refsets = collections.defaultdict(set)
+		testsets = collections.defaultdict(set)
 
-	print('neg precision:', precision(refsets['neg'], testsets['neg']))
-	print('neg recall:', recall(refsets['neg'], testsets['neg']))
-	print('neg F-measure:', f_measure(refsets['neg'], testsets['neg']))
+		for i, (feats, label) in enumerate(testing_docs_per_category[current_category][0]):
+		    refsets[label].add(i)
+		    observed = classifier.classify(feats)
+		    testsets[observed].add(i)
 
-	current_category = current_category + 1
+		print('tamanhos POS, refset: ' + str(len(refsets['pos'])) + ' testset: ' + str(len(testsets['pos'])) )
+		print('pos precision:', precision(refsets['pos'], testsets['pos']))
+		print('pos recall:', recall(refsets['pos'], testsets['pos']))
+		print('pos F-measure:', f_measure(refsets['pos'], testsets['pos']))
 
+		print('tamanhos NEG, refset: ' + str(len(refsets['neg'])) + ' testset: ' + str(len(testsets['neg'])) )
+		print('neg precision:', precision(refsets['neg'], testsets['neg']))
+		print('neg recall:', recall(refsets['neg'], testsets['neg']))
+		print('neg F-measure:', f_measure(refsets['neg'], testsets['neg']))
+
+		current_category = current_category + 1
+
+	print("\n")
+	print("--- Classifier executed in %s seconds ---" % (time.time() - classifier_timer))
+	mean_accuracy = accuracy_total/10
+	print("Average accuracy: " + str(mean_accuracy))
 #print("LogisticRegression_classifier accuracy:", (nltk.classify.accuracy(LogisticRegression_classifier, testing_set)) * 100)
 
 
@@ -346,7 +377,8 @@ for classifier in all_classifiers:
 #print("Binary features, common stemmed words, gets %f" % accuracy)
 
 
-
+classify_naive_bayes()
+classify_alternative_classifier()
 
 
 
