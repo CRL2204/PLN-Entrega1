@@ -309,7 +309,7 @@ def classify_naive_bayes():
 
 def classify_alternative_classifier():
 	print("\n")
-	print("AGORA ESTAMOS CLASSIFICANDO COM O LOGISTIC REGRESSION!")
+	print("AGORA ESTAMOS CLASSIFICANDO COM O CLASSIFICADOR DE ENTROPIA MAXIMA!")
 	print("\n")
 
 	classifier_timer = time.time()
@@ -329,7 +329,7 @@ def classify_alternative_classifier():
 	for classifier in all_classifiers:
 		accuracy = nltk.classify.accuracy(classifier, testing_docs_per_category[current_category][0])
 		accuracy_total = accuracy_total + accuracy
-		print("Logistic_regression accuracy of " + testing_docs_per_category[current_category][1] + " = " + str(accuracy))
+		print("MaxEnt accuracy of " + testing_docs_per_category[current_category][1] + " = " + str(accuracy))
 
 		refsets = collections.defaultdict(set)
 		testsets = collections.defaultdict(set)
