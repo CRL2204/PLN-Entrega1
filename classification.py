@@ -6,10 +6,10 @@ import collections
 import random
 import time
 from nltk.classify.scikitlearn import SklearnClassifier
-from sklearn.svm import LinearSVC, SVC
+# from sklearn.svm import LinearSVC, SVC
 from nltk.classify import NaiveBayesClassifier, MaxentClassifier
 from nltk.stem.snowball import EnglishStemmer
-from sklearn.linear_model import LogisticRegression, SGDClassifier
+# from sklearn.linear_model import LogisticRegression, SGDClassifier
 
 
 ########################################################################################
@@ -50,7 +50,7 @@ def create_tuple_words_category(documents):
 	for doc in documents:
 
 		#Pegando as palavras do doc que nao sao stopwords para diminuir a quantidade
-		doc_words = [stemmer.stem(w) for w in reuters.words(doc) if w not in stopwords]
+		doc_words = [(stemmer.stem(w)).lower() for w in reuters.words(doc) if w not in stopwords]
 		documents_words = documents_words + doc_words
 
 		doc_features_category = (doc_words, reuters.categories(doc))
@@ -91,10 +91,10 @@ def getting_docs_categorized():
 	categorized_training_docs, all_training_words = create_tuple_words_category(train_docs)
 
 	# SALVANDO AS TUPLAS EM PICKLE PRA SER USADO DPS SEM PRECISAR TER QUE LER OS DOCUMENTOS
-	with open("training_docs2.pickle", "wb") as f:
+	with open("training_docs3.pickle", "wb") as f:
 		pickle.dump(categorized_training_docs, f, 2)
 
-	with open("training_words2.pickle", "wb") as f:
+	with open("training_words3.pickle", "wb") as f:
 		pickle.dump(all_training_words, f, 2)
 
 	# IMPRIMINDO DADOS DO CONJUNTO DE TREINAMENTO
@@ -111,10 +111,10 @@ def getting_docs_categorized():
 	categorized_testing_docs, all_testing_words = create_tuple_words_category(test_docs)
 
 	# SALVANDO EM PICKLE PRA SER USADO NO SCRIPT DO DB
-	with open("testing_docs2.pickle", "wb") as f:
+	with open("testing_docs3.pickle", "wb") as f:
 		pickle.dump(categorized_testing_docs, f, 2)
 
-	with open("testing_words2.pickle", "wb") as f:
+	with open("testing_words3.pickle", "wb") as f:
 		pickle.dump(all_testing_words, f, 2)
 
 	# IMPRIMINDO DADOS DO CONJUNTO DE TREINAMENTO
@@ -124,19 +124,19 @@ def getting_docs_categorized():
 
 ############################################################################################################
 
-# getting_docs_categorized()
+getting_docs_categorized()
 
 
-with open("training_docs2.pickle", "rb") as f:
+with open("training_docs3.pickle", "rb") as f:
 	categorized_training_docs = pickle.load(f)
 
-with open("testing_docs2.pickle", "rb") as f:
+with open("testing_docs3.pickle", "rb") as f:
 	categorized_testing_docs = pickle.load(f)
 
-with open("training_words2.pickle", "rb") as f:
+with open("training_words3.pickle", "rb") as f:
 	all_training_words = pickle.load(f)
 
-with open("testing_words2.pickle", "rb") as f:
+with open("testing_words3.pickle", "rb") as f:
 	all_testing_words = pickle.load(f)
 
 print(len(categorized_training_docs))
